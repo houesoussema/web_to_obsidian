@@ -105,6 +105,13 @@ def resolve_image_urls(soup, base_url):
             ]
             img['srcset'] = ', '.join(srcset_parts)
 
+
+def resolve_all_links(soup, base_url):
+    """Find all anchor tags and convert their href attributes to absolute URLs."""
+    for a in soup.find_all('a', href=True):
+        a['href'] = urljoin(base_url, a['href'])
+
+
 def extract_main_content_from_html(html):
     """Intelligently extract main content from HTML string."""
     soup = BeautifulSoup(html, 'html.parser')
@@ -176,7 +183,8 @@ async def create_markdown_file(page, output_dir):
     tags = ['clippings', 'web-scrape']
 
     main_content_html = extract_main_content_from_html(html_content)
-    resolve_image_urls(main_content_html, url)  # Resolve image URLs before converting to Markdown
+    resolve_image_urls(main_content_html, url)  # Resolve image URLs
+    resolve_all_links(main_content_html, url)   # Resolve all other links
     markdown_content = html_to_markdown(main_content_html)
 
     created_date = datetime.now().strftime('%Y-%m-%d')
