@@ -91,6 +91,20 @@ def sanitize_filename(title):
     safe = re.sub(r'\s+', '-', safe)
     return safe[:100].strip('-') or "untitled"
 
+
+def resolve_image_urls(soup, base_url):
+    """Find all image tags and convert their src/srcset attributes to absolute URLs."""
+    for img in soup.find_all('img'):
+        if img.has_attr('src'):
+            img['src'] = urljoin(base_url, img['src'])
+
+        if img.has_attr('srcset'):
+            srcset_parts = [
+                ' '.join([urljoin(base_url, url_part.strip().split()[0])] + url_part.strip().split()[1:])
+                for url_part in img['srcset'].split(',') if url_part.strip()
+            ]
+            img['srcset'] = ', '.join(srcset_parts)
+
 def extract_main_content_from_html(html):
     """Intelligently extract main content from HTML string."""
     soup = BeautifulSoup(html, 'html.parser')
@@ -162,6 +176,7 @@ async def create_markdown_file(page, output_dir):
     tags = ['clippings', 'web-scrape']
 
     main_content_html = extract_main_content_from_html(html_content)
+    resolve_image_urls(main_content_html, url)  # Resolve image URLs before converting to Markdown
     markdown_content = html_to_markdown(main_content_html)
 
     created_date = datetime.now().strftime('%Y-%m-%d')
@@ -180,7 +195,8 @@ tags:
 
     full_content = frontmatter + "## Scraped Content\n\n" + markdown_content
 
-    filename = sanitize_filename(metadata['title']) + ".md"
+    url_hash = abs(hash(url)) % 10000
+    filename = f"{sanitize_filename(metadata['title'])}-{url_hash}.md"
     filepath = output_dir / filename
     filepath.write_text(full_content, encoding='utf-8')
 
